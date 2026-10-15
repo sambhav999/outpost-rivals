@@ -1,0 +1,47 @@
+{
+  "warning": "Illustrative assumptions, not forecasts. Token receipts are volatile and not guaranteed realizable cash. No token price appreciation modeled. Launch fees excluded.",
+  "scenarios": [
+    {
+      "name": "Small",
+      "mau": 1000,
+      "conversion": 0.02,
+      "spend": 6,
+      "cost": 500,
+      "grossCosmeticRevenueUsdEquivalent": 120,
+      "tokenCheckoutShareAssumption": 0.5,
+      "retiredUsdEquivalentAtCheckout": 12,
+      "treasuryUsdEquivalent": 108,
+      "monthlyCostAssumption": 500,
+      "netBeforeTaxesAndSlippage": -392,
+      "breakEvenPayingUsers": 93
+    },
+    {
+      "name": "Growing",
+      "mau": 10000,
+      "conversion": 0.03,
+      "spend": 8,
+      "cost": 3000,
+      "grossCosmeticRevenueUsdEquivalent": 2400,
+      "tokenCheckoutShareAssumption": 0.5,
+      "retiredUsdEquivalentAtCheckout": 240,
+      "treasuryUsdEquivalent": 2160,
+      "monthlyCostAssumption": 3000,
+      "netBeforeTaxesAndSlippage": -840,
+      "breakEvenPayingUsers": 417
+    },
+    {
+      "name": "Established",
+      "mau": 50000,
+      "conversion": 0.04,
+      "spend": 10,
+      "cost": 15000,
+      "grossCosmeticRevenueUsdEquivalent": 20000,
+      "tokenCheckoutShareAssumption": 0.5,
+      "retiredUsdEquivalentAtCheckout": 2000,
+      "treasuryUsdEquivalent": 18000,
+      "monthlyCostAssumption": 15000,
+      "netBeforeTaxesAndSlippage": 3000,
+      "breakEvenPayingUsers": 1667
+    }
+  ]
+}

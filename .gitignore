@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+!.env.example
+deployments/*.json
+artifacts/
+coverage/
+*.log
+launch-prepared.json

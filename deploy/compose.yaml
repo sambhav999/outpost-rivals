@@ -1,0 +1,16 @@
+services:
+  game:
+    build: ..
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+      DB_PATH: /app/data/outpost.sqlite
+    volumes:
+      - game-data:/app/data
+    ports:
+      - '127.0.0.1:3000:3000'
+    init: true
+    stop_grace_period: 30s
+volumes:
+  game-data:

@@ -1,0 +1,10 @@
+import { config } from "../server/config";
+import { database } from "../server/db";
+import { resolve } from "node:path";
+import { mkdirSync } from "node:fs";
+mkdirSync("backups", { recursive: true });
+const file = resolve("backups", `outpost-${Date.now()}.sqlite`);
+const db = database(config.db);
+db.exec(`VACUUM INTO '${file.replaceAll("'", "''")}'`);
+db.close();
+console.log(file);
