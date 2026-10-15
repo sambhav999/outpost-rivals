@@ -3,7 +3,8 @@ if (existsSync(".env")) process.loadEnvFile(".env");
 export const config = {
   port: Number(process.env.PORT || 3000),
   db: process.env.DB_PATH || "data/outpost.sqlite",
-  origin: process.env.APP_ORIGIN || "http://localhost:5173",
+  origin: new URL(process.env.APP_ORIGIN?.trim() || "http://localhost:5173")
+    .origin,
   production: process.env.NODE_ENV === "production",
   roundMs: Number(process.env.ROUND_SECONDS || 40) * 1000,
   chainId: Number(process.env.CHAIN_ID || 46630),
