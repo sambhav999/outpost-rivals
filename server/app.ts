@@ -31,7 +31,8 @@ const orderSchema = z
 export function createApp(c: Config = config) {
   const db = database(c.db),
     app = express(),
-    store = shop(db, c);
+    store = shop(db, c),
+    origins = c.origin.split(",");
   app.disable("x-powered-by");
   app.use(express.json({ limit: "32kb" }));
   const rate = new Map<string, { n: number; t: number }>();
@@ -92,7 +93,7 @@ export function createApp(c: Config = config) {
   });
   app.use("/api", (req: any, res, next) => {
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
-      if (req.headers.origin && req.headers.origin !== c.origin)
+      if (req.headers.origin && !origins.includes(req.headers.origin))
         return res.status(403).json({ error: "Origin rejected" });
       if (c.production && !req.headers.origin)
         return res.status(403).json({ error: "Origin required" });
@@ -191,7 +192,7 @@ export function createApp(c: Config = config) {
     const address = getAddress(z.string().parse(req.body.address));
     const nonce = uid(),
       expires = Date.now() + 300000;
-    const message = `${new URL(c.origin).host} requests a wallet link for Outpost Rivals.\n\nAddress: ${address}\nChain ID: ${c.chainId}\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}\nExpires: ${new Date(expires).toISOString()}\n\nThis signature only links your account. It authorizes no transfer.`;
+    const message = `${new URL(origins.includes(req.headers.origin) ? req.headers.origin : origins[0]).host} requests a wallet link for Outpost Rivals.\n\nAddress: ${address}\nChain ID: ${c.chainId}\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}\nExpires: ${new Date(expires).toISOString()}\n\nThis signature only links your account. It authorizes no transfer.`;
     db.prepare("INSERT INTO nonces VALUES (?,?,?,?,?)").run(
       nonce,
       user(req).id,

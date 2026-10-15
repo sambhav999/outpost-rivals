@@ -1,10 +1,15 @@
 import { existsSync } from "node:fs";
 if (existsSync(".env")) process.loadEnvFile(".env");
+// APP_ORIGIN may list several comma-separated origins, e.g. local + production.
+const origins = (process.env.APP_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean)
+  .map((o) => new URL(o).origin);
 export const config = {
   port: Number(process.env.PORT || 3000),
   db: process.env.DB_PATH || "data/outpost.sqlite",
-  origin: new URL(process.env.APP_ORIGIN?.trim() || "http://localhost:5173")
-    .origin,
+  origin: origins.join(","),
   production: process.env.NODE_ENV === "production",
   roundMs: Number(process.env.ROUND_SECONDS || 40) * 1000,
   chainId: Number(process.env.CHAIN_ID || 46630),
@@ -26,6 +31,6 @@ if (
   !Number.isFinite(config.roundMs)
 )
   throw Error("Invalid port or round duration");
-if (config.production && !config.origin.startsWith("https://"))
-  throw Error("Production APP_ORIGIN must use HTTPS");
+if (config.production && !origins.some((o) => o.startsWith("https://")))
+  throw Error("Production APP_ORIGIN must include an HTTPS origin");
 export type Config = typeof config;
