@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: outpost-rivals
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /app/data/outpost.sqlite
+      # Set to the service URL Render assigns, e.g. https://outpost-rivals.onrender.com
+      - key: APP_ORIGIN
+        sync: false
+      - key: MARKET_MODE
+        value: scenario
+    disk:
+      name: outpost-data
+      mountPath: /app/data
+      sizeGB: 1
