@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserProvider, Contract } from "ethers";
 import { World } from "./World";
 import {
   createGame,
@@ -150,6 +149,7 @@ function App() {
         ],
       });
     }
+    const { BrowserProvider } = await import("ethers");
     const provider = new BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     if (Number((await provider.getNetwork()).chainId) !== chain.id)
@@ -167,6 +167,7 @@ function App() {
   }
   async function purchase() {
     if (!quote) return;
+    const { Contract } = await import("ethers");
     const { provider, signer } = await connect();
     if (
       (await signer.getAddress()).toLowerCase() !==
@@ -229,6 +230,21 @@ function App() {
         : showGame
           ? game
           : preview;
+  const chosenTile = shown.tiles?.find((t: any) => t.id === selected);
+  const legalTargets = game?.status === "active" && ["scout", "contest"].includes(order.type)
+    ? game.tiles.filter((t: any) => !validateOrder(game, game.you, { ...order, target: t.id })).map((t: any) => t.id)
+    : [];
+  const availableAction = game?.status === "active" && selected
+    ? !validateOrder(game, game.you, { type: "contest", target: selected }) ? "contest"
+      : !validateOrder(game, game.you, { type: "scout", target: selected }) ? "scout" : null
+    : null;
+  const selectHex = (id: string) => {
+    setSelected(id);
+    if (game?.status !== "active" || game.submitted) return;
+    if (["scout", "contest"].includes(order.type) && !validateOrder(game, game.you, { ...order, target: id })) return;
+    if (!validateOrder(game, game.you, { type: "contest", target: id })) setOrder({ type: "contest" });
+    else if (!validateOrder(game, game.you, { type: "scout", target: id })) setOrder({ type: "scout" });
+  };
   const plannedOrder = { ...order, target: selected || undefined };
   const orderIssue =
     game?.status === "active"
@@ -427,15 +443,16 @@ function App() {
                       <button
                         key={type}
                         className={order.type === type ? "selected" : ""}
-                        onClick={() =>
+                        onClick={() => {
+                          setSelected("");
                           setOrder({
                             type: type as any,
                             upgrade: "income",
                             partner: (game.you + 1) % 3,
-                          })
-                        }
+                          });
+                        }}
                       >
-                        {type}
+                        <span aria-hidden="true">{{scout:"◇",contest:"⚑",develop:"▣",pact:"↔",hold:"·"}[type]}</span> {type}
                       </button>
                     ),
                   )}
@@ -459,9 +476,9 @@ function App() {
                       onChange={(e) => setSelected(e.target.value)}
                     >
                       <option value="">Choose a hex on the map</option>
-                      {game.tiles.map((t: any) => (
+                      {game.tiles.filter((t: any) => legalTargets.includes(t.id)).map((t: any) => (
                         <option key={t.id} value={t.id}>
-                          {t.id} · {t.kind}
+                          {t.id} · {t.kind === "flag" ? "banner" : t.kind === "cache" ? "supply post" : t.kind}
                         </option>
                       ))}
                     </select>
@@ -601,7 +618,7 @@ function App() {
           </div>
           <div className="map-wrap">
             <div className="map-heading">
-              <span>THE FIRST FRONTIER</span>
+              <span><span className="map-sigil">✥</span> THE FIRST FRONTIER</span>
               <span>
                 {showGame ? "TACTICAL VIEW" : "37 HEXES · INFINITE RIVALRIES"}
               </span>
@@ -610,14 +627,22 @@ function App() {
               game={shown}
               cosmetic={boot.profile.skin}
               selected={selected}
-              onSelect={setSelected}
+              reachable={legalTargets}
+              onSelect={selectHex}
             />
+            {chosenTile && <div className="tile-intel" role="status">
+              <div className="tile-intel-top"><span>HEX {selected}</span><button aria-label="Clear selected hex" onClick={() => setSelected("")}>×</button></div>
+              <h3>{chosenTile.kind === "flag" ? "Banner point" : chosenTile.kind === "cache" ? "Supply post" : chosenTile.kind === "base" ? "Home outpost" : chosenTile.kind === "fog" ? "Uncharted terrain" : chosenTile.kind === "forest" ? "Forest passage" : chosenTile.kind === "rock" ? "Stone ridge" : "Open ground"}</h3>
+              <p>{chosenTile.kind === "flag" ? "Held banners score each round." : chosenTile.kind === "cache" ? "Captured posts add Supply each round." : chosenTile.kind === "fog" ? "Scout this hex to reveal its ground." : chosenTile.kind === "base" ? "Home outposts cannot be captured." : "Terrain can be contested after it is explored."}</p>
+              {chosenTile.owner >= 0 && <span className="owner-chip" style={{borderColor:FACTIONS[chosenTile.owner].color,color:FACTIONS[chosenTile.owner].color}}>◆ {FACTIONS[chosenTile.owner].name}</span>}
+              {game?.status === "active" && <div className="tile-intel-action">{availableAction ? `Available: ${availableAction} · ${cost(game,game.you,{type:availableAction,target:selected})} Supply` : "Inspect only · no legal move this round"}</div>}
+            </div>}
             <div className="map-caption">
               <span>◈ Scout. Develop. Contest.</span>
               <span>
                 {showGame
-                  ? "Click a hex to plan"
-                  : "Original world · autonomous rivals"}
+                  ? "Tap a glowing hex to plan"
+                  : "Drag to orbit · select to inspect"}
               </span>
             </div>
             {showGame && (
@@ -655,7 +680,7 @@ function App() {
             {showGame ? (
               <section className="journal">
                 <div className="eyebrow">FIELD NOTES</div>
-                {game.events.slice(-3).map((e: any, i: number) => (
+                {game.events.slice(-4).map((e: any, i: number) => (
                   <p key={i}>
                     <span>R{e.round}</span> {e.text}
                   </p>

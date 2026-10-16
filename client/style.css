@@ -910,3 +910,171 @@ footer > span:first-child {
     scroll-behavior: auto !important;
   }
 }
+
+/* World presentation and interaction pass */
+.frontier {
+  max-width: 1680px;
+  grid-template-columns: minmax(345px, 0.82fr) minmax(520px, 1.55fr);
+  column-gap: clamp(26px, 3.5vw, 64px);
+  padding-top: 46px;
+}
+.hero-copy {
+  align-self: center;
+  padding-right: 10px;
+}
+.hero-copy h1 {
+  max-width: 700px;
+  font-size: clamp(51px, 4.8vw, 78px);
+  line-height: 1.04;
+}
+.hero-copy > p {
+  font-size: 15px;
+  max-width: 480px;
+}
+.map-wrap {
+  border: 1px solid #52674b;
+  background: #172520;
+  box-shadow: 0 24px 72px #020a0880, 0 0 0 7px #19251e;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.map-heading {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  right: 0;
+  color: #e5efcf;
+  padding: 22px 27px;
+  letter-spacing: 1.6px;
+  pointer-events: none;
+}
+.map-heading > span:last-child { color: #c8d3b4; }
+.map-sigil { font-size: 16px; color: #d8e9a6; margin-right: 8px; }
+.world {
+  height: clamp(480px, 44vw, 650px);
+  position: relative;
+  background: #172520;
+  overflow: hidden;
+}
+.world canvas { cursor: grab; touch-action: none; }
+.world-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 68% at 50% 53%, transparent 53%, #0b1719a3 100%);
+}
+.world-coordinate,
+.world-guide,
+.world-hover {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: #d5e5c2;
+}
+.world-coordinate { top: 52px; left: 27px; color: #b5cfa8; }
+.world-guide { left: 27px; bottom: 25px; }
+.world-guide span { margin: 0 8px; opacity: .55; }
+.world-hover { top: 54px; right: 27px; text-align: right; text-transform: uppercase; }
+.world-hover span { display: block; color: #a6ba9f; margin-top: 5px; }
+.world-controls {
+  position: absolute;
+  z-index: 6;
+  right: 22px;
+  bottom: 19px;
+  display: flex;
+  gap: 5px;
+}
+.world-controls button {
+  width: 35px;
+  height: 35px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: #0d1d1ac9;
+  border: 1px solid #677d67;
+  backdrop-filter: blur(6px);
+  color: #e8f2d8;
+  font-size: 18px;
+}
+.world-controls button:hover { background: #4d6548; }
+.map-caption {
+  margin: 0;
+  padding: 15px 27px;
+  background: #1a2a22;
+  border-top: 1px solid #5b7054;
+  color: #bcccad;
+}
+.tile-intel {
+  position: absolute;
+  z-index: 6;
+  left: 20px;
+  bottom: 66px;
+  width: min(260px, 50%);
+  padding: 14px 17px;
+  border: 1px solid #8a9e7c;
+  background: #13211dee;
+  box-shadow: 0 12px 36px #050b09aa;
+  backdrop-filter: blur(15px);
+  border-radius: 8px;
+  animation: tile-intel-in .2s ease-out;
+}
+@keyframes tile-intel-in { from { opacity: 0; transform: translateY(9px); } }
+.tile-intel-top { display: flex; justify-content: space-between; align-items: center; font-size: 9px; letter-spacing: 1.6px; color: #c8e3a7; }
+.tile-intel-top button { padding: 0 4px; border: 0; background: transparent; font-size: 17px; line-height: 1; }
+.tile-intel h3 { margin: 11px 0 4px; font-family: Georgia,serif; font-size: 21px; }
+.tile-intel p { margin: 0 0 8px; font-size: 11px; line-height: 1.5; color: #bfd0b9; }
+.tile-intel-action { margin-top: 9px; padding-top: 8px; border-top: 1px solid #556551; font-size: 10px; color: #d7ecae; }
+.owner-chip { display: inline-block; border: 1px solid; border-radius: 30px; padding: 3px 7px; font-size: 9px; }
+.world-fallback { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); overflow: auto; gap: 5px; padding: 55px 12px 15px; }
+.world-fallback button { padding: 7px 3px; font-size: 10px; }
+.world-fallback button.active { border-color: #d8eaa8; background: #425a42; }
+.in-match .hero-copy { align-self: start; }
+.in-match .hero-copy h1 { font-size: clamp(36px, 3.2vw, 52px); }
+.in-match .world { height: clamp(540px, 49vw, 710px); }
+.in-match .order-card { max-width: 460px; margin-top: 30px; border-color: #66845b; background: #18271e; box-shadow: 0 15px 45px #0005; }
+.in-match .stats { padding: 8px 0; border-top: 1px solid #364b39; border-bottom: 1px solid #364b39; }
+.order-types { display: grid; grid-template-columns: repeat(5, 1fr); }
+.order-types button { min-width: 0; font-size: 11px; padding: 12px 3px; border-color: #3e563c; }
+.order-types button span { display: block; font-size: 19px; margin-bottom: 6px; }
+.order-types .selected { background: #c2e49b; color: #1b2d1d; border-color: #d7efb1; }
+.order-card .hint b { color: #d1e8a8; }
+.rival-strip { background: #18271f; border-top: 1px solid #3b503e; }
+.factions { margin-top: 10px; }
+.faction { border-color: #486146; box-shadow: 0 10px 27px #0003; }
+.faction:hover:not(:disabled) { border-color: #b8d391; }
+@media(max-width: 1050px) {
+  .frontier { grid-template-columns: minmax(300px, .85fr) minmax(370px, 1fr); gap: 22px; }
+  .hero-copy h1 { font-size: 51px; }
+  .world { height: 480px; }
+  .in-match .world { height: 550px; }
+}
+@media(max-width: 760px) {
+  .frontier { display: flex; flex-direction: column; gap: 0; padding: 23px 4% 30px; }
+  .hero-copy { padding-right: 0; }
+  .hero-copy h1 { font-size: 50px; }
+  .map-wrap { width: 100%; margin-top: 20px; box-shadow: 0 14px 36px #0009; }
+  .map-heading { padding: 15px; font-size: 8px; }
+  .map-heading > span:last-child { font-size: 7px; }
+  .world { height: min(75vh, 520px); min-height: 370px; }
+  .in-match .world { height: min(70vh, 510px); min-height: 370px; }
+  .world-coordinate { top: 44px; left: 15px; }
+  .world-guide { bottom: 16px; left: 15px; font-size: 7px; max-width: 220px; }
+  .world-guide span { margin: 0 3px; }
+  .world-controls { bottom: 10px; right: 10px; }
+  .world-controls button { width: 30px; height: 30px; }
+  .world-hover { top: 44px; right: 13px; font-size: 8px; }
+  .map-caption { margin: 0; padding: 12px 15px; font-size: 8px; }
+  .tile-intel { bottom: 59px; left: 10px; padding: 10px 12px; width: min(220px, 62%); }
+  .tile-intel h3 { font-size: 17px; }
+  .tile-intel p { font-size: 10px; }
+  .in-match .map-wrap { order: -1; margin: 0 0 28px; }
+  .in-match .order-card { margin-top: 20px; max-width: none; }
+  .in-match .hero-copy h1 { font-size: 37px; }
+  .order-types button { font-size: 10px; }
+  .rival-strip { padding: 11px; }
+  .factions { margin-top: 18px; }
+}
+@media(prefers-reduced-motion: reduce) { .tile-intel { animation: none; } }

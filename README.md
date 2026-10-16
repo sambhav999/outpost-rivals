@@ -5,7 +5,7 @@
 ## What this release actually does
 
 - Play solo against two autonomous tactical agents, or create a room with up to three humans. Empty seats become agents. Orders resolve simultaneously; 40-second timeout holds absent players.
-- Original isometric hex world, selectable terrain, fog of war, scout/capture/develop/convoy orders, three factions, captain stance, persistent memory and nontransferable XP.
+- Interactive isometric hex world with drag orbit, zoom, hover inspection, highlighted legal moves, selected route and tile intelligence. Fog of war, scout/capture/develop/convoy orders, three factions, captain stance, persistent memory and nontransferable XP.
 - Daily equal-start challenge, seven-day leaderboard, completed match replay with downloadable hash-chain receipts.
 - Optional wallet identity, exact-allowance cosmetic checkout, signed expiring orders, persisted pending purchase recovery, canonical receipt confirmation and owned cosmetic equipment.
 - Cosmetic token payments split 80% treasury / 20% dead-address retirement. USDG payments go 100% treasury. No combat boosts, yield, vaults or guaranteed appreciation.

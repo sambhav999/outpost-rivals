@@ -9,4 +9,4 @@
 
 Frontend: `client/`. Backend: `server/`. Rules: `shared/game.ts`. Contracts: `contracts/`. Launch/deployment tooling: `scripts/`. The package contains no production keys or live deployment claims.
 
-Original design uses compact territory-strategy references while keeping its own world, art and rules. Current game scope is specified in `docs/GAME_RULES.md`. Speculative future features are not represented as shipped.
+The v1.1 visual pass adds orbit/zoom, tactical highlights, map inspection, route preview, terrain landmarks and squad movement. It compiles and needs actual mobile and desktop visual QA. Original design uses compact territory-strategy references while keeping its own world, art and rules. Current game scope is specified in `docs/GAME_RULES.md`. Speculative future features are not represented as shipped.
