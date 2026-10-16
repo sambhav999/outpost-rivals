@@ -61,23 +61,23 @@ export type GameState = {
 };
 export const FACTIONS = [
   {
-    name: "Verdant Pact",
+    name: "Emberhold",
     doctrine: "pathfinder" as Doctrine,
-    color: "#bcdf8a",
+    color: "#dc5a40",
     tag: "Travel light. Choose your ground.",
     symbol: "◈",
   },
   {
-    name: "Ember Union",
+    name: "Tidewatch",
     doctrine: "builder" as Doctrine,
-    color: "#e99c74",
+    color: "#4a95da",
     tag: "Build a foothold. Hold the line.",
     symbol: "▲",
   },
   {
-    name: "Tide Assembly",
+    name: "Sunreach",
     doctrine: "trader" as Doctrine,
-    color: "#8dc7d5",
+    color: "#e3b43e",
     tag: "A promise can change the map.",
     symbol: "◎",
   },

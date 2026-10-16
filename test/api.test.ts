@@ -3,6 +3,29 @@ import assert from "node:assert/strict";
 import { createApp } from "../server/app";
 import { config } from "../server/config";
 import { Wallet } from "ethers";
+import { database } from "../server/db";
+import { DatabaseSync } from "node:sqlite";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+test("legacy wallet migration preserves records and requires new outpost choice", () => {
+  const dir = mkdtempSync(join(tmpdir(), "outpost-migrate-")), path = join(dir,"legacy.sqlite");
+  try {
+    const old = new DatabaseSync(path);
+    old.exec("CREATE TABLE users(id TEXT PRIMARY KEY,name TEXT NOT NULL,faction INTEGER DEFAULT 0,stance TEXT DEFAULT 'balanced',wallet TEXT UNIQUE,xp INTEGER DEFAULT 0,wins INTEGER DEFAULT 0,played INTEGER DEFAULT 0,skin TEXT DEFAULT '',memory TEXT DEFAULT '{}')");
+    old.prepare("INSERT INTO users(id,name,faction,wallet,xp,played) VALUES (?,?,?,?,?,?)")
+      .run("legacy","Founder",1,"0x0000000000000000000000000000000000000001",310,4);
+    old.close();
+    const db = database(path);
+    const record = db.prepare("SELECT name,wallet,xp,played,onboarded FROM users WHERE id='legacy'").get() as any;
+    assert.equal(record.name,"Founder");
+    assert.equal(record.xp,310);
+    assert.equal(record.played,4);
+    assert.equal(record.onboarded,0);
+    db.close();
+  } finally { rmSync(dir,{recursive:true,force:true}); }
+});
 test("guest, CSRF, authoritative match, replay integrity, room privacy and wallet restoration", async () => {
   const runtime = createApp({
     ...config,
@@ -45,6 +68,10 @@ test("guest, CSRF, authoritative match, replay integrity, room privacy and walle
     assert.equal((await a.call("/api/bootstrap")).status, 401);
     await a.call("/api/session", {});
     await b.call("/api/session", {});
+    assert.equal((await a.call("/api/liquidity")).data.status, "unavailable");
+    assert.equal((await a.call("/api/onboarding",{
+      name:"Guest",faction:0,stance:"balanced"
+    })).status,403);
     assert.equal(
       (await a.call("/api/matches", { mode: "solo" }, { "x-csrf-token": "" }))
         .status,
@@ -122,15 +149,26 @@ test("guest, CSRF, authoritative match, replay integrity, room privacy and walle
         address: wallet.address,
       }),
       signature = await wallet.signMessage(challenge.data.message);
-    assert.equal(
-      (
-        await a.call("/api/wallet/verify", {
-          nonce: challenge.data.nonce,
-          signature,
-        })
-      ).status,
-      200,
-    );
+    const linked = await a.call("/api/wallet/verify", {
+      nonce: challenge.data.nonce,
+      signature,
+    });
+    assert.equal(linked.status, 200);
+    assert.equal((await a.call("/api/bootstrap")).data.profile.onboarded,false);
+    assert.equal((await a.call("/api/matches",{mode:"solo"})).status,409);
+    assert.equal((await a.call("/api/shop/orders",{
+      sku:"moss-crown",asset:"stable"
+    })).data.error,"Create your captain before checkout");
+    assert.equal((await a.call("/api/onboarding",{
+      name:"x",faction:1,stance:"balanced"
+    })).status,422);
+    assert.equal((await a.call("/api/onboarding",{
+      name:"Captain Mira",faction:1,stance:"balanced"
+    })).status,200);
+    assert.equal((await a.call("/api/onboarding",{
+      name:"Second Name",faction:0,stance:"bold"
+    })).status,409);
+    assert.equal((await a.call("/api/bootstrap")).data.profile.name,"Captain Mira");
     assert.equal(
       (
         await a.call("/api/wallet/verify", {
@@ -153,6 +191,8 @@ test("guest, CSRF, authoritative match, replay integrity, room privacy and walle
       true,
     );
     assert.equal((await b.call("/api/bootstrap")).data.profile.played, 1);
+    assert.equal((await b.call("/api/bootstrap")).data.profile.onboarded,true);
+    assert.equal((await b.call("/api/bootstrap")).data.profile.name,"Captain Mira");
   } finally {
     await new Promise<void>((r) => server.close(() => r()));
     runtime.close();

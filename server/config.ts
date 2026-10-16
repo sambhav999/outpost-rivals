@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 if (existsSync(".env")) process.loadEnvFile(".env");
 // APP_ORIGIN may list several comma-separated origins, e.g. local + production.
-const origins = (process.env.APP_ORIGIN || "http://localhost:5173")
+const origins = (process.env.APP_ORIGIN || "http://localhost:3000")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean)
@@ -22,6 +22,11 @@ export const config = {
   symbol: process.env.MARKET_SYMBOL || "NVDA",
   confirmations: Number(process.env.CONFIRMATIONS || 3),
   tokenUnitsPerDollar: process.env.TOKEN_UNITS_PER_DOLLAR || "",
+  rivalPriceUrl: process.env.RIVAL_PRICE_URL || "",
+  rivalMinPriceUsd: process.env.RIVAL_MIN_PRICE_USD || "",
+  rivalMaxPriceUsd: process.env.RIVAL_MAX_PRICE_USD || "",
+  o1ReadApiKey: process.env.O1_READ_API_KEY || "",
+  minPoolLiquidityUsd: Number(process.env.MIN_POOL_LIQUIDITY_USD || 50000),
   tokenDecimals: Number(process.env.TOKEN_DECIMALS || 18),
   stableDecimals: Number(process.env.STABLE_DECIMALS || 6),
 };
@@ -31,6 +36,10 @@ if (
   !Number.isFinite(config.roundMs)
 )
   throw Error("Invalid port or round duration");
+if (![4663, 46630].includes(config.chainId))
+  throw Error("Only Robinhood Chain mainnet (4663) and testnet (46630) are supported");
 if (config.production && !origins.some((o) => o.startsWith("https://")))
   throw Error("Production APP_ORIGIN must include an HTTPS origin");
+if (!Number.isFinite(config.minPoolLiquidityUsd) || config.minPoolLiquidityUsd < 50000)
+  throw Error("Pool liquidity threshold must be at least $50,000");
 export type Config = typeof config;

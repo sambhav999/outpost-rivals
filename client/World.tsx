@@ -52,14 +52,15 @@ export function World({ game, cosmetic, selected, reachable, onSelect, onHover }
     renderer.domElement.setAttribute("role", "img");
     renderer.domElement.setAttribute("aria-label", "Interactive hex world. Drag to rotate, scroll to zoom, click a hex to inspect.");
 
-    const night = cosmetic === "moonwatch";
+    const night = cosmetic === "moonwatch" || cosmetic === "season-one-aurora";
+    const aurora = cosmetic === "season-one-aurora";
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(night ? "#151c31" : "#172520");
-    scene.fog = new THREE.FogExp2(night ? "#151c31" : "#172520", 0.018);
+    scene.background = new THREE.Color(aurora ? "#103c3e" : night ? "#151c31" : "#172520");
+    scene.fog = new THREE.FogExp2(aurora ? "#103c3e" : night ? "#151c31" : "#172520", 0.018);
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 90);
     const target = new THREE.Vector3(0, 0, 0);
     const aim = { ...cameraState.current };
-    scene.add(new THREE.HemisphereLight(night ? 0xb0b8f4 : 0xe9efdc, 0x314840, night ? 2 : 2.5));
+    scene.add(new THREE.HemisphereLight(aurora ? 0x8df7e2 : night ? 0xb0b8f4 : 0xe9efdc, 0x314840, night ? 2 : 2.5));
     const sun = new THREE.DirectionalLight(night ? 0xadb8ff : 0xffdfad, night ? 2.8 : 3.4);
     sun.position.set(-4, 12, 8);
     sun.castShadow = true;
@@ -240,7 +241,7 @@ export function World({ game, cosmetic, selected, reachable, onSelect, onHover }
         body.scale.setScalar(size);
         put(topGeometries.head, stone, group, x, 0.7 * size + 0.16, z).scale.setScalar(size);
       }
-      put(topGeometries.cape, f.id === (game.you ?? 0) && cosmetic === "moss-crown" ? flagTop : cloth, group, 0, 0.88, -0.22);
+      put(topGeometries.cape, f.id === (game.you ?? 0) && ["moss-crown", "season-one-captain"].includes(cosmetic || "") ? flagTop : cloth, group, 0, 0.88, -0.22);
       const standard = put(topGeometries.pole, timber, group, 0.18, 0.83, -0.24);
       standard.scale.y = 0.75;
       if (f.id === (game.you ?? 0) && cosmetic === "ember-standard") put(topGeometries.banner, cloth, group, 0.37, 1.12, -0.24);

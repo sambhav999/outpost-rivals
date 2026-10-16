@@ -1,5 +1,7 @@
 # Rules and original design
 
+These rules describe the server-owned **tactical match**. The living isometric island on the landing page is a separate local browser simulation; its battles, resources, PX and seasons do not determine tactical matches or persist to the server.
+
 Outpost Rivals uses compact territorial strategy as inspiration. It does not reuse Polytopia branding, art, characters, maps or source code.
 
 ## Win

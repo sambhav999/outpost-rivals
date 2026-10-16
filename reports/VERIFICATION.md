@@ -1,30 +1,18 @@
-# Verification — developer candidate v1.1
+# Verification — Outpost Rivals 1.4.0 beta candidate
 
-## Executed in this environment
+## Executed for this build
 
-- `npm run build`: PASS. TypeScript check and production Vite bundle generated. Main JS ~219 KB gzip, optional wallet chunk ~93.5 KB gzip.
-- `npm run contracts:compile`: PASS. OutpostStore and test-only MockToken compiled with optimizer and Shanghai EVM target; exact dependencies are in package-lock.json.
-- `npm test`: **10 tests, 10 passed, 0 failed**. Tests include 600 seeded deterministic games; resource/health/position invariants; fog boundaries; order validation; diplomacy; stance cost; integer payment conservation; HTTP sessions/CSRF/origin checks; room host/participant authority; duplicate order rejection; replay tamper detection; wallet nonce replay rejection and account restoration; timeout handling; persisted SQLite results; daily ranked limit; stale/halted/nonfinite market inputs; EVM payment splits, replay/expiry/signer/chain/payer/asset boundaries and pausing; backend quote→onchain purchase→receipt fulfilment→idempotent inventory.
-- `npm run simulate`: **1,200 completed agent matches**, zero tested invariant violations. Verdant wins365 (30.42%), Ember346 (28.83%), Tide351 (29.25%), draws138 (11.5%). Mean5.7125 rounds. Results in `simulation.json`.
-- `npm run economics`: generated three explicit assumption scenarios. Small/growing cases lose money at the chosen costs. No price appreciation assumed.
+- `npm test`: **14/14 passed**, including local EVM checkout with compiled OutpostStore bytecode and mock tokens, valid/missing/forged/expired/moved price attestations, testnet price change requiring a new quote, stale/mismatched o1 pool data, snapshot history and no-data state, receipt fulfilment and the prior gameplay and wallet boundaries. o1 responses were mocked; no live API key was available.
+- `npm run build`: PASS, TypeScript and production Vite bundle. The initial JS chunk is ~1.45 MB uncompressed / 415 KB gzip; mobile loading is unmeasured.
+- `npm run launch:price-stress`: PASS, refreshes `launch-price-stress.json`. The same $8 RIVAL item costs 32,000 tokens at $0.00025, 8,000 at $0.001 or 2,000 at $0.004. A 4× market change **before** the signed second proof prevents the original order; a change **after** a valid proof can still expose the buyer or merchant until inclusion. This is scenario arithmetic, not a market forecast or real swap execution.
+- Solidity compiles in the EVM tests for Shanghai via IR. The new EIP-712 version 2 is incompatible with a v1.3.1 store deployment; preflight checks `priceGuardVersion() = 1`.
+- `npm run contracts:compile`: PASS. Same-process local HTTP smoke: `/`, `/healthz`, `/readyz` returned 200; an issued guest session read `/api/liquidity`, which correctly returned `unavailable` without a launched token and API key.
+- Historical v1.3.1 gameplay review in `DEEP_SIMULATION.md`: 30,000 deterministic bot games, local burst tests and economics scenarios. Those unchanged components were not rerun for v1.4.
 
-The first simulation exposed a large visibility advantage. Equal opening vision, a cheaper Scout identity, and unbiased deterministic objective tie-breaking removed that observed skew. The final results are agent-policy outcomes, not evidence of human competitive balance or retention.
+## Still needed before release
 
-## Not executed / not proven
+- No Robinhood testnet/mainnet transaction, explorer receipt, funded wallet run, hosted app, WalletConnect phone trial or live o1 token/pool/API response was available. Mainnet RIVAL quote fails closed until a canonical launched token, read key, bounded external feed and actual market depth exist. USDG checkout still requires deployed contracts and real wallet proof.
+- The price proof relies on the merchant signer and external feed. It checks a signed observation within the time window, not the DEX price at inclusion. Pool liquidity is an indexer estimate, not guaranteed exit capacity; the $50k gate requires review against actual trade size and sell quotes.
+- Contract audit, mobile/WebGL QA, production proxy/backup drill, player retention, payer conversion and repeat cosmetic demand remain unverified. The island is browser-local simulation; the separate tactical match and wallet identity persist on the server.
 
-- No public app deployment or Robinhood testnet/mainnet broadcast.
-- No o1 authenticated prepare call or live token creation; no supplied API key/deployer funds.
-- No real Robinhood quote or wallet purchase smoke test. Adapter tests use controlled responses; payment tests use a local EVM.
-- No interactive browser or mobile visual QA in this environment. The redesigned React/Three.js world compiles, but its presentation, touch UX, GPU frame rate and injected-wallet interactions require real browser review. See `UI_REVIEW.md`.
-- No Docker image build/run, external load test, security audit, penetration test, human playtest, user acquisition or revenue validation.
-- No independent gameplay verification, token-price claim, guaranteed yield or claim of guaranteed launchpad acceptance.
-
-## Warnings observed
-
-- Ganache's native uWebSockets binary does not match Node24; its JavaScript fallback ran the EVM tests successfully. This affects the local test harness, not the Express runtime.
-- Vite reports a large main JavaScript chunk (~808 KB raw / ~219 KB gzip), including React and Three.js. The optional wallet chunk loads when needed (~252 KB raw / ~94 KB gzip). Measure actual load and frame rate on mobile before launch.
-- A local npm proxy-configuration warning appears in logs; commands still completed.
-
-## Release classification
-
-**Deployable developer MVP / testnet candidate.** Gameplay, persistence, payment contract and integration tooling are implemented. Live-network, browser, operational and security checks listed in `docs/DEPLOYMENT.md` remain release gates for a paid public launch.
+**Classification:** local developer beta candidate for funded Robinhood testnet acceptance, not evidence of a launched token or increased TVL. Follow `docs/BETA_TEST.md` and `reports/PRICE_TVL_UPDATE.md` before any public paid release.

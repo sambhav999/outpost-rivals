@@ -1,4 +1,9 @@
-export const SHOP_ITEMS = [
+export type ShopItem = {
+  id: string; name: string; category: string; priceCents: number;
+  color: string; description: string; kind: "skin" | "banner" | "theme" | "badge";
+  payment?: "rival"; minMatches?: number;
+};
+export const SHOP_ITEMS: readonly ShopItem[] = [
   {
     id: "moss-crown",
     name: "Mossbound Captain",
@@ -37,6 +42,27 @@ export const SHOP_ITEMS = [
     description:
       "A golden insignia ring around your captain. No gameplay advantage.",
     kind: "badge",
+  },
+  {
+    id: "season-one-aurora",
+    name: "Aurora Field",
+    category: "Season 01 · battlefield atmosphere",
+    priceCents: 800,
+    color: "#7de4d2",
+    description: "A luminous teal sky over your tactical battlefield. Visual only.",
+    kind: "theme",
+    payment: "rival",
+  },
+  {
+    id: "season-one-captain",
+    name: "First Frontier Captain",
+    category: "Season 01 · captain attire",
+    priceCents: 600,
+    color: "#e6c789",
+    description: "A gold cape unlocked after three tactical matches. Visual only.",
+    kind: "skin",
+    payment: "rival",
+    minMatches: 3,
   },
 ] as const;
 export const ECONOMY = {

@@ -1,6 +1,12 @@
 services:
   game:
-    build: ..
+    build:
+      context: ..
+      args:
+        VITE_CHAIN_ID: ${CHAIN_ID:-46630}
+        VITE_WALLETCONNECT_PROJECT_ID: ${VITE_WALLETCONNECT_PROJECT_ID:-}
+        VITE_TESTNET_RPC_URL: ${VITE_TESTNET_RPC_URL:-}
+        VITE_MAINNET_RPC_URL: ${VITE_MAINNET_RPC_URL:-}
     restart: unless-stopped
     env_file: ../.env
     environment:

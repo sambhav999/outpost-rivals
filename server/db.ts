@@ -15,8 +15,33 @@ export function database(path: string) {
  CREATE TABLE IF NOT EXISTS attempts(user_id TEXT,day TEXT,match_id TEXT,PRIMARY KEY(user_id,day));
  CREATE TABLE IF NOT EXISTS inventory(user_id TEXT,sku TEXT,order_id TEXT UNIQUE,PRIMARY KEY(user_id,sku));
  CREATE TABLE IF NOT EXISTS orders(id TEXT PRIMARY KEY,user_id TEXT,payload TEXT,signature TEXT,status TEXT DEFAULT 'pending',tx TEXT UNIQUE);
+ CREATE TABLE IF NOT EXISTS economy_totals(id INTEGER PRIMARY KEY CHECK(id=1),rival_orders INTEGER NOT NULL,stable_orders INTEGER NOT NULL,rival_gross TEXT NOT NULL,rival_retired TEXT NOT NULL,stable_gross TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS liquidity_observations(as_of INTEGER,pool_id TEXT,price_usd TEXT,liquidity_usd REAL,PRIMARY KEY(as_of,pool_id));
  CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY,value TEXT);
  `);
+  const columns = db.prepare("PRAGMA table_info(users)").all() as {name:string}[];
+  if(!columns.some(c=>c.name==="onboarded")){
+    db.exec("ALTER TABLE users ADD COLUMN onboarded INTEGER NOT NULL DEFAULT 0");
+    // Legacy faction IDs had different names. Keep history and inventory, but
+    // ask linked accounts to choose an identity in the new three-outpost world.
+  }
+  // One-time migration for prior receipts. Every new confirmed order updates
+  // this row in the same transaction as its inventory entitlement.
+  if (!db.prepare("SELECT id FROM economy_totals WHERE id=1").get()) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      let rivalOrders=0, stableOrders=0, rivalGross=0n, rivalRetired=0n, stableGross=0n;
+      for (const row of db.prepare("SELECT payload FROM orders WHERE status='confirmed'").all() as {payload:string}[]) {
+        const p=JSON.parse(row.payload), amount=BigInt(p.order.amount);
+        if (p.asset==="rival") {
+          rivalOrders++; rivalGross+=amount;
+          rivalRetired+=amount*BigInt(p.order.creator?.toLowerCase() === "0x0000000000000000000000000000000000000000" ? 2000 : 200)/10000n;
+        } else { stableOrders++; stableGross+=amount; }
+      }
+      db.prepare("INSERT INTO economy_totals VALUES (1,?,?,?,?,?)").run(rivalOrders,stableOrders,rivalGross.toString(),rivalRetired.toString(),stableGross.toString());
+      db.exec("COMMIT");
+    } catch (e) { db.exec("ROLLBACK"); throw e; }
+  }
   return db;
 }
 export type DB = ReturnType<typeof database>;

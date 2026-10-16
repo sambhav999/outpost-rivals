@@ -21,7 +21,7 @@ A move above +1% adds 1 Supply to Develop; below -1% adds 1 to Scout; otherwise 
 
 ## API and authority
 
-Guest session bootstrap: POST `/api/session`, then use returned CSRF on all mutations. Wallet authentication is a one-use domain/chain/address/nonce/expiry-bound EIP-191 challenge. A verified existing wallet restores its original profile; guest progress is not merged automatically.
+Guest session bootstrap: POST `/api/session`, then use returned CSRF on all mutations. Wallet authentication is a one-use domain/chain/address/nonce/expiry-bound EIP-191 challenge. First connect leads to one-time POST `/api/onboarding` (name, faction 0–2, stance). Saved details appear in `/api/bootstrap` and are projected into the local island by a same-origin message. A verified existing wallet restores its original profile; guest progress is not merged automatically. Checkout quotes are refused until the linked captain finishes onboarding.
 
 The client submits only an order and expected round. The server owns board state, validation, deadlines, agents and outcomes. Clients cannot submit XP, supply, winners, inventory or a replay digest. Active opponent state is projected through fog. Finished replays are public by ID; users should not put sensitive information in captain names.
 

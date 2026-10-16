@@ -35,16 +35,25 @@ export function createApp(c: Config = config) {
     origins = c.origin.split(",");
   app.disable("x-powered-by");
   app.use(express.json({ limit: "32kb" }));
-  const rate = new Map<string, { n: number; t: number }>();
   app.use((req, res, next) => {
+    const embeddedWorld = req.path === "/observatory.html";
     res.set({
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "same-origin",
-      "X-Frame-Options": "DENY",
+      "X-Frame-Options": embeddedWorld ? "SAMEORIGIN" : "DENY",
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https:; font-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+        `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src 'self' https:; font-src 'self' https://fonts.gstatic.com; frame-src 'self'; frame-ancestors ${embeddedWorld ? "'self'" : "'none'"}; object-src 'none'; base-uri 'self'`,
     });
-    const key = req.socket.remoteAddress || "local";
+    next();
+  });
+  const rate = new Map<string, { n: number; t: number }>();
+  // Reverse proxies commonly present one socket address for every player.
+  // Limit API calls per authenticated game account, while keeping unlinked
+  // session creation behind the peer-IP bucket and the proxy's own limits.
+  app.use("/api", (req: any, res, next) => {
+    const linked = session(req);
+    req.auth = linked;
+    const key = linked ? "user:" + linked.user_id : "peer:" + (req.socket.remoteAddress || "local");
     let r = rate.get(key);
     if (!r || Date.now() - r.t > 60000) {
       r = { n: 0, t: Date.now() };
@@ -64,7 +73,7 @@ export function createApp(c: Config = config) {
     if (!cookie) return null;
     return db
       .prepare(
-        "SELECT s.*,u.name,u.faction,u.stance,u.wallet,u.xp,u.wins,u.played,u.skin,u.memory FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires>?",
+        "SELECT s.*,u.name,u.faction,u.stance,u.wallet,u.xp,u.wins,u.played,u.skin,u.memory,u.onboarded FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires>?",
       )
       .get(digest(cookie), Date.now()) as any;
   };
@@ -98,7 +107,6 @@ export function createApp(c: Config = config) {
       if (c.production && !req.headers.origin)
         return res.status(403).json({ error: "Origin required" });
     }
-    req.auth = session(req);
     if (req.path === "/session" && req.method === "POST") return next();
     if (!req.auth)
       return res.status(401).json({ error: "Start a guest session" });
@@ -128,6 +136,7 @@ export function createApp(c: Config = config) {
         faction: u.faction,
         stance: u.stance,
         wallet: u.wallet,
+        onboarded: !!u.onboarded,
         xp: u.xp,
         wins: u.wins,
         played: u.played,
@@ -146,6 +155,7 @@ export function createApp(c: Config = config) {
       market: await market(db, c),
       shop: { ...store.status(), items: SHOP_ITEMS },
       economy: ECONOMY,
+      economyMetrics: store.metrics(),
       chain: {
         id: c.chainId,
         store: c.store,
@@ -187,6 +197,20 @@ export function createApp(c: Config = config) {
       "UPDATE users SET name=?,faction=?,stance=?,skin=? WHERE id=?",
     ).run(p.name, p.faction, p.stance, p.skin || "", user(req).id);
     res.json({ saved: true });
+  });
+  app.post("/api/onboarding", (req: any, res) => {
+    const u = user(req);
+    if (!u.wallet) return res.status(403).json({ error: "Connect a wallet to save your captain" });
+    const p = z.object({
+      name: z.string().trim().min(2).max(24).regex(/^[\w \-']+$/),
+      faction: z.number().int().min(0).max(2),
+      stance: z.enum(["balanced","bold","careful"]),
+    }).strict().parse(req.body);
+    const result = db.prepare(
+      "UPDATE users SET name=?,faction=?,stance=?,onboarded=1 WHERE id=? AND onboarded=0"
+    ).run(p.name,p.faction,p.stance,u.id);
+    if (!result.changes) return res.status(409).json({error:"Captain already created"});
+    res.json({created:true});
   });
   app.post("/api/wallet/challenge", (req: any, res) => {
     const address = getAddress(z.string().parse(req.body.address));
@@ -296,6 +320,8 @@ export function createApp(c: Config = config) {
       .object({ mode: z.enum(["solo", "weekly", "room"]).default("solo") })
       .parse(req.body);
     const u = user(req);
+    if (u.wallet && !u.onboarded)
+      return res.status(409).json({error:"Create your captain before entering a match"});
     const active: any = db
       .prepare(
         "SELECT m.id FROM matches m JOIN players p ON p.match_id=m.id WHERE p.user_id=? AND m.status IN ('active','lobby') ORDER BY m.created DESC LIMIT 1",
@@ -510,6 +536,10 @@ export function createApp(c: Config = config) {
       ),
     );
   });
+  app.get("/api/liquidity", async (_req: any, res) => res.json(await store.liquidity()));
+  app.post("/api/shop/orders/:id/price-check", async (req: any, res) =>
+    res.json(await store.priceCheck(user(req), req.params.id)),
+  );
   app.post("/api/shop/orders/:id/confirm", async (req: any, res) =>
     res.json(
       await store.confirm(user(req), req.params.id, String(req.body.hash)),
@@ -532,7 +562,14 @@ export function createApp(c: Config = config) {
             : e.message || "Request failed",
       });
   });
+  let ticks = 0;
   const interval = setInterval(() => {
+    if (++ticks % 60 === 0) {
+      const now = Date.now();
+      db.prepare("DELETE FROM sessions WHERE expires<=?").run(now);
+      db.prepare("DELETE FROM nonces WHERE expires<=?").run(now);
+      for (const [key, bucket] of rate) if (now - bucket.t > 60000) rate.delete(key);
+    }
     for (const row of db
       .prepare("SELECT id FROM matches WHERE status='active' AND deadline<=?")
       .all(Date.now()) as any[]) {

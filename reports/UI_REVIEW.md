@@ -1,4 +1,10 @@
-# Frontend experience review — v1.1
+# Frontend experience review — v1.2
+
+## Post-wallet experience and isometric island
+
+The landing page now embeds the autonomous pixel-art island from the provided reference. It has three outposts, agents with memory, world activity, a feed, observation panels, controls and minimap. The app frames it as a local simulation. After an EVM wallet verifies, a new user names a captain, chooses the same faction names/colors as the island, and selects a tactical stance. The saved account summary shows matches, wins, XP and cosmetics, with entry points to resume a match or play the daily challenge. The name/faction projection is visual; island resources and PX do not persist.
+
+The island is a separate canvas runtime loaded in a same-origin iframe. The existing Three.js hex board remains the server-owned tactical mode. This is a two-mode product, so test whether players understand the distinction before public launch. If the intended final product is a shared persistent island, the local runtime must be moved behind an authoritative service.
 
 ## Honest assessment of v1.0
 

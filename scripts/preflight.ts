@@ -14,6 +14,8 @@ if (
 )
   throw Error("Asset mismatch");
 if (await s.paused()) throw Error("Store paused");
+await s.purchasedSku("0x0000000000000000000000000000000000000000", "0x"+"00".repeat(32));
+if (Number(await s.priceGuardVersion()) !== 1) throw Error("Wrong price guard contract version");
 if (
   config.signer &&
   (await s.quoteSigner()).toLowerCase() !==

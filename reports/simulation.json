@@ -1,23 +1,23 @@
 {
-  "games": 1200,
+  "games": 30000,
   "wins": [
-    365,
-    346,
-    351
+    8752,
+    8654,
+    8801
   ],
   "winRates": [
-    30.42,
-    28.83,
-    29.25
+    29.17,
+    28.85,
+    29.34
   ],
-  "draws": 138,
-  "averageRounds": 5.7125,
+  "draws": 3793,
+  "averageRounds": 5.693733333333333,
   "averageScores": [
-    5.0275,
-    5.0125,
-    4.869166666666667
+    4.9614,
+    4.9519,
+    4.9520333333333335
   ],
   "invariantViolations": 0,
-  "pactEvents": 600,
+  "pactEvents": 15000,
   "scope": "Deterministic autonomous-policy simulations only. Not human retention, token demand, profitability, exploit resistance, or a claim of competitive balance."
 }

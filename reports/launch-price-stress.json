@@ -1,0 +1,147 @@
+{
+  "kind": "illustrative price sensitivity; not a price or slippage prediction",
+  "assumptions": {
+    "issuedSupply": 1000000000,
+    "referencePriceUsd": 0.001,
+    "itemId": "season-one-aurora",
+    "mau": 10000,
+    "payerRate": 0.03,
+    "spendUsd": 8,
+    "rivalShare": 0.5,
+    "monthlyCostUsd": 3000,
+    "liveO1PoolStateUsed": false,
+    "feeAndSlippageExcluded": true,
+    "futureRepeatPurchasesAssumed": false
+  },
+  "atFreshQuote": [
+    {
+      "priceUsd": 0.00025,
+      "illustrativeFdvUsd": 250000,
+      "itemUsd": 8,
+      "itemTokens": 32000,
+      "itemRetiredTokens": 6400,
+      "cohortRivalCheckoutUsdAtQuote": 1200,
+      "cohortRetiredTokens": 960000,
+      "cohortRetiredPercentOfIssuedSupply": 0.096
+    },
+    {
+      "priceUsd": 0.001,
+      "illustrativeFdvUsd": 1000000,
+      "itemUsd": 8,
+      "itemTokens": 8000,
+      "itemRetiredTokens": 1600,
+      "cohortRivalCheckoutUsdAtQuote": 1200,
+      "cohortRetiredTokens": 240000,
+      "cohortRetiredPercentOfIssuedSupply": 0.024
+    },
+    {
+      "priceUsd": 0.004,
+      "illustrativeFdvUsd": 4000000,
+      "itemUsd": 8,
+      "itemTokens": 2000,
+      "itemRetiredTokens": 400,
+      "cohortRivalCheckoutUsdAtQuote": 1200,
+      "cohortRetiredTokens": 60000,
+      "cohortRetiredPercentOfIssuedSupply": 0.006
+    },
+    {
+      "priceUsd": 0.01,
+      "illustrativeFdvUsd": 10000000,
+      "itemUsd": 8,
+      "itemTokens": 800,
+      "itemRetiredTokens": 160,
+      "cohortRivalCheckoutUsdAtQuote": 1200,
+      "cohortRetiredTokens": 24000,
+      "cohortRetiredPercentOfIssuedSupply": 0.0024000000000000002
+    }
+  ],
+  "signedQuoteShock": [
+    {
+      "factor": 0.25,
+      "quotedPriceUsd": 0.001,
+      "executionPriceUsd": 0.00025,
+      "fixedSignedItemTokens": 8000,
+      "buyerTokenValueAtExecutionUsd": 2,
+      "merchantTreasuryValueAtExecutionUsd": 1.6,
+      "retirementValueAtExecutionUsd": 0.4,
+      "rejectsIfMoveObservedBeforeFreshProof": true,
+      "rejectsIfMoveOccursAfterValidProof": false,
+      "proofMaximumAgeSeconds": 20
+    },
+    {
+      "factor": 1,
+      "quotedPriceUsd": 0.001,
+      "executionPriceUsd": 0.001,
+      "fixedSignedItemTokens": 8000,
+      "buyerTokenValueAtExecutionUsd": 8,
+      "merchantTreasuryValueAtExecutionUsd": 6.4,
+      "retirementValueAtExecutionUsd": 1.6,
+      "rejectsIfMoveObservedBeforeFreshProof": false,
+      "rejectsIfMoveOccursAfterValidProof": false,
+      "proofMaximumAgeSeconds": 20
+    },
+    {
+      "factor": 4,
+      "quotedPriceUsd": 0.001,
+      "executionPriceUsd": 0.004,
+      "fixedSignedItemTokens": 8000,
+      "buyerTokenValueAtExecutionUsd": 32,
+      "merchantTreasuryValueAtExecutionUsd": 25.6,
+      "retirementValueAtExecutionUsd": 6.4,
+      "rejectsIfMoveObservedBeforeFreshProof": true,
+      "rejectsIfMoveOccursAfterValidProof": false,
+      "proofMaximumAgeSeconds": 20
+    }
+  ],
+  "treasuryMarkToMarket": [
+    {
+      "priceUsd": 0.00025,
+      "stableGrossUsd": 1200,
+      "treasuryRivalTokens": 960000,
+      "treasuryTokenValueIfRealizedUsd": 240,
+      "netIfFullyRealizedBeforeFeesSlippageAndTaxUsd": -1560
+    },
+    {
+      "priceUsd": 0.001,
+      "stableGrossUsd": 1200,
+      "treasuryRivalTokens": 960000,
+      "treasuryTokenValueIfRealizedUsd": 960,
+      "netIfFullyRealizedBeforeFeesSlippageAndTaxUsd": -840
+    },
+    {
+      "priceUsd": 0.004,
+      "stableGrossUsd": 1200,
+      "treasuryRivalTokens": 960000,
+      "treasuryTokenValueIfRealizedUsd": 3840,
+      "netIfFullyRealizedBeforeFeesSlippageAndTaxUsd": 2040
+    },
+    {
+      "priceUsd": 0.01,
+      "stableGrossUsd": 1200,
+      "treasuryRivalTokens": 960000,
+      "treasuryTokenValueIfRealizedUsd": 9600,
+      "netIfFullyRealizedBeforeFeesSlippageAndTaxUsd": 7800
+    }
+  ],
+  "flowPaths": [
+    {
+      "scenario": "All token payers buy fresh; treasury immediately sells",
+      "freshMarketBuysUsd": 1200,
+      "treasuryMarketSellsUsd": 960,
+      "netDirectionUsdAtQuote": 240
+    },
+    {
+      "scenario": "Token payers use existing balances; treasury sells",
+      "freshMarketBuysUsd": 0,
+      "treasuryMarketSellsUsd": 960,
+      "netDirectionUsdAtQuote": -960
+    },
+    {
+      "scenario": "All token payers buy fresh; treasury holds",
+      "freshMarketBuysUsd": 1200,
+      "treasuryMarketSellsUsd": 0,
+      "netDirectionUsdAtQuote": 1200
+    }
+  ],
+  "limits": "Single-sided Uniswap v4 opening pool, trading fee, slippage, external trades, USDG depeg, creator-fee claims, gas and behavioral response are excluded. v1.4 requires a recent signer-attested price within 3% of the original quote; an actual spot move after attestation remains a risk for up to 20 seconds. Retirement transfers to dead address, but ERC-20 totalSupply does not fall."
+}

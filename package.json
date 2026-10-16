@@ -1,6 +1,6 @@
 {
   "name": "outpost-rivals",
-  "version": "1.1.0",
+  "version": "1.4.0-beta",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,18 +15,25 @@
     "simulate": "node --import tsx scripts/simulate.ts",
     "contracts:compile": "node --import tsx scripts/compile.ts",
     "contracts:deploy": "node --import tsx scripts/deploy.ts",
+    "beta:fund": "node --import tsx scripts/fund-beta.ts",
     "launch:prepare": "node --import tsx scripts/launch.ts",
     "preflight": "node --import tsx scripts/preflight.ts",
     "backup": "node --import tsx scripts/backup.ts",
-    "economics": "node --import tsx scripts/economics.ts"
+    "economics": "node --import tsx scripts/economics.ts",
+    "economics:stress": "node --import tsx scripts/stress-economics.ts",
+    "launch:price-stress": "node --import tsx scripts/launch-price-stress.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.0.2",
+    "@rainbow-me/rainbowkit": "2.2.11",
+    "@tanstack/react-query": "5.104.3",
     "ethers": "^6.17.0",
     "express": "^5.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.186.1",
+    "viem": "2.57.7",
+    "wagmi": "2.19.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {

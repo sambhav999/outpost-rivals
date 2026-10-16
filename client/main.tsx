@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { RainbowKitProvider, useAccountModal, useConnectModal, darkTheme } from "@rainbow-me/rainbowkit";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider, useAccount, useSwitchChain } from "wagmi";
 import { World } from "./World";
+import { walletConfig, walletConnectEnabled } from "./wallet";
 import {
   createGame,
   FACTIONS,
@@ -8,13 +12,9 @@ import {
   validateOrder,
   type Order,
 } from "../shared/game";
-import { STORE_ABI, ERC20_ABI } from "../shared/checkout";
+import { STORE_ABI, ERC20_ABI, EMPTY_PRICE_CHECK } from "../shared/checkout";
+import "@rainbow-me/rainbowkit/styles.css";
 import "./style.css";
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
 let csrf = "";
 async function api(path: string, body?: any, method = body ? "POST" : "GET") {
   const r = await fetch("/api" + path, {
@@ -35,8 +35,14 @@ preview.tiles.forEach((t, i) => {
   if (t.kind !== "base" && i % 7 === 0) t.owner = i % 3;
 });
 function App() {
+  const { address: activeAddress, chainId: activeChainId, connector, isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { openAccountModal } = useAccountModal();
+  const { switchChainAsync } = useSwitchChain();
+  const livingFrame = useRef<HTMLIFrameElement>(null);
+  const [authRequested, setAuthRequested] = useState(false);
   const [boot, setBoot] = useState<any>(),
-    [page, setPage] = useState("world"),
+    [page, setPage] = useState("observatory"),
     [game, setGame] = useState<any>(),
     [match, setMatch] = useState(""),
     [selected, setSelected] = useState(""),
@@ -50,7 +56,9 @@ function App() {
     [step, setStep] = useState(0),
     [room, setRoom] = useState(""),
     [profile, setProfile] = useState<any>(),
+    [onboardingStep, setOnboardingStep] = useState(0),
     [quote, setQuote] = useState<any>(),
+    [liquidity, setLiquidity] = useState<any>(),
     [pending, setPending] = useState<any>(() => {
       try {
         return JSON.parse(localStorage.getItem("pending-purchase") || "null");
@@ -62,6 +70,13 @@ function App() {
     const b = await api("/bootstrap");
     setBoot(b);
     setProfile(b.profile);
+    return b;
+  };
+  const syncLivingCaptain = (p = boot?.profile) => {
+    if (!p?.wallet || !p?.onboarded) return;
+    livingFrame.current?.contentWindow?.postMessage({
+      type: "OUTPOST_CAPTAIN", name: p.name, faction: p.faction
+    }, location.origin);
   };
   const run = async (fn: () => Promise<any>) => {
     setBusy(true);
@@ -113,48 +128,74 @@ function App() {
     const t = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => {
+    if (page !== "economy") return;
+    let alive = true;
+    const load = async () => {
+      try { const x = await api("/liquidity"); if (alive) setLiquidity(x); }
+      catch { if (alive) setLiquidity({ status: "unavailable", reason: "Market data unavailable" }); }
+    };
+    load();
+    const timer = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [page]);
+  useEffect(() => {
+    syncLivingCaptain();
+  }, [boot?.profile?.wallet, boot?.profile?.onboarded, boot?.profile?.name, boot?.profile?.faction]);
+  useEffect(() => {
+    setQuote(null);
+  }, [activeAddress, activeChainId]);
+  useEffect(() => {
+    if (!authRequested || !isConnected || !boot) return;
+    setAuthRequested(false);
+    run(async () => { await connect(); });
+  }, [authRequested, isConnected, activeAddress, boot?.chain?.id]);
+  function requestWallet() {
+    if (!isConnected) {
+      setAuthRequested(true);
+      if (openConnectModal) openConnectModal();
+      else setError("Wallet picker unavailable. Configure a WalletConnect project ID or install an EVM wallet.");
+    } else run(async () => { await connect(); });
+  }
+  async function requestQuote(sku: string, asset: "stable" | "rival") {
+    if (!isConnected || !activeAddress) return requestWallet();
+    if (boot.profile.wallet?.toLowerCase() !== activeAddress.toLowerCase()) {
+      await connect();
+      setNotice("Wallet linked. Return to the Armory after creating your captain.");
+      return;
+    }
+    if (!boot.profile.onboarded) throw Error("Create your captain before checkout");
+    if (activeChainId !== boot.chain.id) await switchChainAsync({ chainId: boot.chain.id });
+    setQuote(await api("/shop/orders", { sku, asset }));
+  }
   const start = (mode: string) =>
     run(async () => {
       const r = await api("/matches", { mode });
       setMatch(r.id);
       setReplay(null);
-      setPage("world");
+      setPage("tactics");
       setSelected("");
     });
-  async function connect() {
-    if (!window.ethereum)
-      throw Error(
-        "Install an EVM wallet to connect. You can play without one.",
-      );
+  async function connect(forPurchase = false) {
+    if (!activeAddress || !connector) throw Error("Connect your wallet first.");
     const chain = boot.chain;
-    const hex = "0x" + chain.id.toString(16);
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: hex }],
-      });
-    } catch (e: any) {
-      if (e.code !== 4902) throw e;
-      await window.ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: hex,
-            chainName:
-              chain.id === 4663 ? "Robinhood Chain" : "Robinhood Chain Testnet",
-            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-            rpcUrls: [chain.rpc],
-            blockExplorerUrls: [chain.explorer],
-          },
-        ],
-      });
-    }
+    if (import.meta.env.VITE_CHAIN_ID && Number(import.meta.env.VITE_CHAIN_ID) !== chain.id)
+      throw Error("Client chain configuration differs from the server. Ask the operator to rebuild the app.");
+    if (activeChainId !== chain.id) await switchChainAsync({ chainId: chain.id });
     const { BrowserProvider } = await import("ethers");
-    const provider = new BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
+    const rawProvider = await connector.getProvider();
+    if (!rawProvider) throw Error("Selected wallet did not provide an EVM connection.");
+    const provider = new BrowserProvider(rawProvider as any, "any");
+    const signer = await provider.getSigner(activeAddress);
     if (Number((await provider.getNetwork()).chainId) !== chain.id)
       throw Error("Switch to the configured Robinhood network");
     const address = await signer.getAddress();
+    if (address.toLowerCase() !== activeAddress.toLowerCase()) throw Error("Wallet account changed. Reconnect.");
+    if (forPurchase) {
+      if (boot.profile.wallet?.toLowerCase() !== address.toLowerCase())
+        throw Error("Link this wallet to your captain before paying.");
+      return { provider, signer, profile: boot.profile };
+    }
     const challenge = await api("/wallet/challenge", { address });
     const signature = await signer.signMessage(challenge.message);
     const verified = await api("/wallet/verify", {
@@ -162,13 +203,28 @@ function App() {
       signature,
     });
     csrf = verified.csrf;
-    await refresh();
-    return { provider, signer };
+    const updated = await refresh();
+    if (verified.restored) {
+      setMatch("");
+      setGame(null);
+      setRoom("");
+    }
+    if (!updated.profile.onboarded && /^Captain [0-9a-f]{4}$/i.test(updated.profile.name))
+      setProfile({ ...updated.profile, name: "" });
+    setPage("observatory");
+    setOnboardingStep(0);
+    setNotice(updated.profile.onboarded
+      ? verified.restored
+        ? "Existing captain restored. Guest match progress is not merged."
+        : "Welcome back. Your captain is ready."
+      : "Wallet verified. Create your captain to save your identity.");
+    return { provider, signer, profile: updated.profile };
   }
   async function purchase() {
     if (!quote) return;
     const { Contract } = await import("ethers");
-    const { provider, signer } = await connect();
+    const { provider, signer } = await connect(true);
+    try {
     if (
       (await signer.getAddress()).toLowerCase() !==
       quote.order.payer.toLowerCase()
@@ -182,22 +238,52 @@ function App() {
       setNotice("Confirm the exact token allowance in your wallet.");
       await (await token.approve(quote.store, amount)).wait();
     }
+    // An approval is a separate transaction and can outlive the signed price.
+    // Keep the allowance, but ask the player to review a newly signed quote.
+    if (Date.now() + 15000 >= quote.order.expires * 1000) {
+      const fresh = await api("/shop/orders", { sku: quote.sku, asset: quote.asset });
+      setQuote(fresh);
+      throw Error("Price quote expired during approval. Review the refreshed amount before buying.");
+    }
+    let proof = { proof: EMPTY_PRICE_CHECK, signature: "0x" };
+    if (quote.asset === "rival") {
+      try { proof = await api("/shop/orders/" + quote.order.orderId + "/price-check", {}); }
+      catch (e: any) {
+        if (/moved|expired|old/i.test(e.message)) {
+          setQuote(null);
+          setQuote(await api("/shop/orders", { sku: quote.sku, asset: quote.asset }));
+          throw Error("Market changed. Review the refreshed token amount before buying.");
+        }
+        throw e;
+      }
+    }
     setNotice("Confirm cosmetic purchase in your wallet.");
     const tx = await new Contract(quote.store, STORE_ABI, signer).purchase(
       quote.order,
       quote.signature,
+      proof.proof,
+      proof.signature,
     );
     const p = { id: quote.order.orderId, hash: tx.hash };
     setPending(p);
     localStorage.setItem("pending-purchase", JSON.stringify(p));
-    await tx.wait(3);
+    try {
+      await tx.wait(3);
+    } catch (e: any) {
+      if (e.receipt?.status === 0) {
+        localStorage.removeItem("pending-purchase");
+        setPending(null);
+        setQuote(null);
+      }
+      throw e;
+    }
     await api("/shop/orders/" + p.id + "/confirm", { hash: p.hash });
     localStorage.removeItem("pending-purchase");
     setPending(null);
     setQuote(null);
     setNotice("Cosmetic unlocked. Equip it in Captain.");
     await refresh();
-    provider.destroy();
+    } finally { provider.destroy(); }
   }
   const openReplay = (id: string) =>
     run(async () => {
@@ -223,7 +309,7 @@ function App() {
       </div>
     );
   const self = game?.factions?.[game.you],
-    showGame = page === "world" && game,
+    showGame = page === "tactics" && game,
     shown =
       page === "replay" && replay
         ? { ...replay.snapshots[step]?.state, you: 0 }
@@ -260,7 +346,7 @@ function App() {
           href="/"
           onClick={(e) => {
             e.preventDefault();
-            setPage("world");
+            setPage("observatory");
           }}
         >
           <img src="/mark.svg" />
@@ -270,7 +356,8 @@ function App() {
         </a>
         <nav>
           {[
-            ["world", "The frontier"],
+            ["observatory", "Living world"],
+            ["tactics", "Tactical match"],
             ["captain", "Captain"],
             ["warroom", "War room"],
             ["armory", "Armory"],
@@ -290,12 +377,13 @@ function App() {
             </button>
           ))}
         </nav>
-        <button className="wallet" disabled={busy} onClick={() => run(connect)}>
-          {boot.profile.wallet
-            ? boot.profile.wallet.slice(0, 6) +
-              "…" +
-              boot.profile.wallet.slice(-4)
-            : "Connect wallet"}
+        <button className="wallet" disabled={busy} onClick={() =>
+          isConnected && activeAddress?.toLowerCase() === boot.profile.wallet?.toLowerCase()
+            ? openAccountModal?.() : requestWallet()
+        }>
+          {isConnected && activeAddress && boot.profile.wallet?.toLowerCase() === activeAddress.toLowerCase()
+            ? activeAddress.slice(0, 6) + "…" + activeAddress.slice(-4)
+            : isConnected ? "Link active wallet" : "Connect wallet"}
           <span>↗</span>
         </button>
       </header>
@@ -305,6 +393,48 @@ function App() {
         <span>FREE TO PLAY · COSMETICS ONLY</span>
         <span className="network-end">SEASON 00 / THE FIRST FRONTIER</span>
       </div>
+      {page === "observatory" && (
+        <main className="living-shell">
+          <section className="living-intro">
+            <div>
+              <div className="eyebrow">THE LIVING FRONTIER / LOCAL WORLD SIMULATION</div>
+              <h1>The world moves <em>without you.</em></h1>
+              <p>Watch rival outposts grow, follow agents as they choose, fight and remember, and make a captain your own. Your wallet saves your captain and tactical match record.</p>
+            </div>
+            <div className="living-actions">
+              {!boot.profile.wallet ? <button className="primary" disabled={busy} onClick={requestWallet}>Connect & create captain ↗</button>
+                : <button className="primary" onClick={() => setPage("captain")}>{boot.profile.name} · Captain profile ↗</button>}
+              <button onClick={() => start("solo")} disabled={busy}>Play tactical match</button>
+            </div>
+          </section>
+          {boot.profile.wallet && boot.profile.onboarded && (
+            <section className="captain-pass" aria-label="Saved captain account">
+              <div className="captain-pass-identity">
+                <span className="captain-pass-sigil" style={{color:FACTIONS[boot.profile.faction].color}}>{FACTIONS[boot.profile.faction].symbol}</span>
+                <div><small>WALLET LINKED · GAME ACCOUNT</small><h2>{boot.profile.name}</h2>
+                  <span>{FACTIONS[boot.profile.faction].name} · {boot.profile.stance} stance</span></div>
+              </div>
+              <div className="captain-pass-stats" aria-label="Persisted tactical record">
+                <span><b>{boot.profile.played}</b><small>Matches</small></span>
+                <span><b>{boot.profile.wins}</b><small>Wins</small></span>
+                <span><b>{boot.profile.xp}</b><small>XP</small></span>
+                <span><b>{boot.inventory.length}</b><small>Cosmetics</small></span>
+              </div>
+              <div className="captain-pass-actions">
+                {boot.history.some((h:any)=>["active","lobby"].includes(h.status))
+                  ? <button className="primary" onClick={()=>{setMatch(boot.history.find((h:any)=>["active","lobby"].includes(h.status)).id);setPage("tactics")}}>Resume match →</button>
+                  : <button className="primary" disabled={busy} onClick={()=>start("solo")}>Play a match →</button>}
+                <button disabled={busy} onClick={()=>start("weekly")}>Daily challenge</button>
+              </div>
+              <p>These stats are saved by the game server. The island below runs locally in this browser.</p>
+            </section>
+          )}
+          <div className="living-frame">
+            <iframe ref={livingFrame} title="Outpost Rivals living isometric world" src="/observatory.html?embedded=1" onLoad={() => syncLivingCaptain()} />
+          </div>
+          <p className="living-caption">Your connected captain name and faction are projected into this local simulation. Agent decisions, PX, battles and world outcomes here are not server-persisted or onchain.</p>
+        </main>
+      )}
       {error && (
         <div role="alert" className="toast error">
           {error}
@@ -317,7 +447,7 @@ function App() {
           <button onClick={() => setNotice("")}>×</button>
         </div>
       )}
-      {(page === "world" || page === "replay") && (
+      {(page === "tactics" || page === "replay") && (
         <main className={"frontier " + (showGame ? "in-match" : "")}>
           <div className="hero-copy">
             {showGame ? (
@@ -608,7 +738,7 @@ function App() {
                   onClick={() => {
                     setGame(null);
                     setMatch("");
-                    setPage("world");
+                    setPage("tactics");
                   }}
                 >
                   Play your own frontier
@@ -931,7 +1061,7 @@ function App() {
                       onClick={() =>
                         h.status === "finished"
                           ? openReplay(h.id)
-                          : (setMatch(h.id), setPage("world"))
+                          : (setMatch(h.id), setPage("tactics"))
                       }
                     >
                       {h.status === "finished" ? "Replay ↗" : "Resume →"}
@@ -960,7 +1090,8 @@ function App() {
             ·{" "}
             {boot.chain.id === 46630
               ? "Testnet assets have no intended monetary value."
-              : "Prices are merchant-set, not an exchange quote."}
+              : "RIVAL requires a fresh, bounded market-price feed."}
+            {!walletConnectEnabled && " · Mobile QR connection requires a WalletConnect project ID."}
           </div>
           <div className="shop-grid">
             {boot.shop.items.map((item: any) => (
@@ -983,44 +1114,23 @@ function App() {
                 <h3>{item.name}</h3>
                 <p>{item.description}</p>
                 <div className="row">
-                  <b>{(item.priceCents / 100).toFixed(2)} USDG</b>
-                  <span>Cosmetic</span>
+                  <b>{(item.priceCents / 100).toFixed(2)} USDG equivalent</b>
+                  <span>{item.payment === "rival" ? "RIVAL EDITION" : "Cosmetic"}</span>
                 </div>
+                {item.minMatches && <p className="hint">Unlocked for purchase after {item.minMatches} tactical matches · your record: {boot.profile.played}</p>}
                 {boot.inventory.includes(item.id) ? (
                   <button disabled>Owned · equip in Captain</button>
                 ) : (
                   <div className="row">
+                    {item.payment !== "rival" && <button
+                      disabled={busy || !boot.shop.enabled || (item.minMatches && boot.profile.played < item.minMatches)}
+                      onClick={() => run(async () => requestQuote(item.id, "stable"))}
+                    >USDG</button>}
                     <button
-                      disabled={busy || !boot.shop.enabled}
-                      onClick={() =>
-                        run(async () => {
-                          if (!boot.profile.wallet) await connect();
-                          setQuote(
-                            await api("/shop/orders", {
-                              sku: item.id,
-                              asset: "stable",
-                            }),
-                          );
-                        })
-                      }
+                      disabled={busy || !boot.shop.rivalEnabled || (item.minMatches && boot.profile.played < item.minMatches)}
+                      onClick={() => run(async () => requestQuote(item.id, "rival"))}
                     >
-                      USDG
-                    </button>
-                    <button
-                      disabled={busy || !boot.shop.enabled}
-                      onClick={() =>
-                        run(async () => {
-                          if (!boot.profile.wallet) await connect();
-                          setQuote(
-                            await api("/shop/orders", {
-                              sku: item.id,
-                              asset: "rival",
-                            }),
-                          );
-                        })
-                      }
-                    >
-                      RIVAL
+                      {boot.chain.id === 46630 ? "tRIVAL" : "RIVAL"}
                     </button>
                   </div>
                 )}
@@ -1059,11 +1169,36 @@ function App() {
             Style funds the frontier.
           </h1>
           <p className="intro">
-            RIVAL is optional cosmetic utility. There are no promised returns,
+            RIVAL powers optional seasonal visual editions alongside USDG checkout. New editions require real player interest; there are no promised returns,
             paid combat boosts, passive yield or inflationary play-to-earn
             rewards.
           </p>
           <div className="economy-grid">
+            <section className="panel">
+              <small>o1 MARKET · INDEXED DATA</small>
+              {liquidity?.status === "live" ? <>
+                <h2>${liquidity.priceUsd} / RIVAL</h2>
+                {liquidity.previousPriceUsd !== undefined && <p>
+                  Price since prior observation: <b>{Number(liquidity.priceUsd) >= Number(liquidity.previousPriceUsd) ? "+" : ""}{((Number(liquidity.priceUsd) / Number(liquidity.previousPriceUsd) - 1) * 100).toFixed(2)}%</b>
+                </p>}
+                <p>Reported pool liquidity: <b>${Number(liquidity.liquidityUsd).toLocaleString()}</b></p>
+                {liquidity.previousLiquidityUsd !== undefined && <p>
+                  Since the prior recorded observation: <b>{liquidity.liquidityUsd >= liquidity.previousLiquidityUsd ? "+" : ""}${(liquidity.liquidityUsd - liquidity.previousLiquidityUsd).toLocaleString()}</b>
+                  {" "}· {new Date(liquidity.previousAsOf).toLocaleString()}
+                </p>}
+                <p className="hint">Observed {new Date(liquidity.asOf).toLocaleString()} · block {liquidity.observedBlock}. Indexer estimate, not executable sell depth or funds deposited by the game.</p>
+              </> : <>
+                <h2>Market data unavailable</h2>
+                <p>{liquidity?.reason || "Connect an o1 read key and launched token address to show observed price and pool liquidity."}</p>
+              </>}
+            </section>
+            <section className="panel">
+              <small>{boot.chain.id === 46630 ? "TESTNET PURCHASES" : "CONFIRMED GAME PURCHASES"}</small>
+              <h2>{boot.economyMetrics.rivalOrders + boot.economyMetrics.stableOrders} purchases</h2>
+              <p>{boot.economyMetrics.rivalOrders} RIVAL orders · {boot.economyMetrics.stableOrders} USDG orders</p>
+              <p>{boot.economyMetrics.rivalRetired} {boot.chain.id === 46630 ? "tRIVAL" : "RIVAL"} sent to the dead address through confirmed game checkouts.</p>
+              <p className="hint">{boot.economyMetrics.scope}. Testnet totals are experimental and have no economic value.</p>
+            </section>
             <section className="panel">
               <small>CANONICAL TOKEN</small>
               <h2>RIVAL</h2>
@@ -1135,6 +1270,58 @@ function App() {
         <span>A small world. A long memory.</span>
         <button onClick={() => setPage("economy")}>Read the economy ↗</button>
       </footer>
+      {boot.profile.wallet && !boot.profile.onboarded && (
+        <div className="modal-backdrop onboarding-backdrop">
+          <section className="modal onboarding" role="dialog" aria-modal="true" aria-label="Create your captain">
+            <div className="eyebrow">WALLET VERIFIED · STEP {onboardingStep + 1} OF 3</div>
+            <div className="onboarding-progress" aria-hidden="true"><i style={{width: `${(onboardingStep + 1) * 33.34}%`}} /></div>
+            {onboardingStep === 0 && <>
+              <h2>Your name in the frontier.</h2>
+              <p>This captain profile is linked to {boot.profile.wallet.slice(0, 6)}…{boot.profile.wallet.slice(-4)}. Your wallet signature authorized account linking only.</p>
+              <label>Captain name
+                <input autoFocus maxLength={24} value={profile.name}
+                  onChange={e => setProfile({...profile,name:e.target.value})}
+                  placeholder="Choose a name" />
+              </label>
+            </>}
+            {onboardingStep === 1 && <>
+              <h2>Choose an outpost.</h2>
+              <p>Your captain appears with this faction in the living world. Faction is identity, not a paid advantage.</p>
+              <div className="onboarding-factions">
+                {FACTIONS.map((f,i)=><button key={f.name}
+                  type="button" className={profile.faction===i?"selected":""}
+                  onClick={()=>setProfile({...profile,faction:i})}>
+                  <b style={{color:f.color}}>{f.symbol}</b><span>{f.name}<small>{f.doctrine}</small></span>
+                </button>)}
+              </div>
+            </>}
+            {onboardingStep === 2 && <>
+              <h2>Set your first mandate.</h2>
+              <p>Your stance applies to tactical matches. The living world's agents remain autonomous.</p>
+              <div className="onboarding-stances">
+                {([["balanced","Balanced","Adapt to the frontier"],["bold","Bold","Take risks in contests"],["careful","Careful","Defend what you hold"]] as const)
+                  .map(([id,label,description])=><button key={id} className={profile.stance===id?"selected":""}
+                    onClick={()=>setProfile({...profile,stance:id})}><b>{label}</b><small>{description}</small></button>)}
+              </div>
+              <div className="onboarding-summary">{profile.name} · {FACTIONS[profile.faction].name} · {profile.stance}</div>
+            </>}
+            <div className="onboarding-controls">
+              {onboardingStep>0 && <button disabled={busy} onClick={()=>setOnboardingStep(onboardingStep-1)}>← Back</button>}
+              {onboardingStep<2
+                ? <button className="primary" disabled={busy||(onboardingStep===0&&!/^[\w \-']{2,24}$/.test(profile.name.trim()))}
+                  onClick={()=>setOnboardingStep(onboardingStep+1)}>Continue →</button>
+                : <button className="primary" disabled={busy} onClick={()=>run(async()=>{
+                    await api("/onboarding",{name:profile.name.trim(),faction:profile.faction,stance:profile.stance});
+                    const b=await refresh();
+                    setOnboardingStep(0);
+                    setPage("observatory");
+                    syncLivingCaptain(b.profile);
+                    setNotice("Captain created. Enter the living world.");
+                  })}>Create captain →</button>}
+            </div>
+          </section>
+        </div>
+      )}
       {quote && (
         <div className="modal-backdrop">
           <section
@@ -1150,14 +1337,14 @@ function App() {
             <h3>{quote.displayAmount}</h3>
             <p>
               Cosmetic access only. Network gas is additional. Signed price
-              expires in five minutes.{" "}
+              expires in {Math.max(0, Math.ceil((quote.order.expires * 1000 - clock) / 1000))} seconds. Source: {quote.quoteSource}.{" "}
               {quote.asset === "rival"
-                ? "20% retirement / 80% treasury."
+                ? "20% retirement / 80% treasury. A fresh signed price check is required at purchase; a fast move cancels this quote."
                 : "100% treasury."}
             </p>
             <p className="hash">Contract: {quote.store}</p>
             <button
-              disabled={busy}
+              disabled={busy || clock >= quote.order.expires * 1000 || !isConnected || boot.profile.wallet?.toLowerCase() !== activeAddress?.toLowerCase()}
               className="primary"
               onClick={() => run(purchase)}
             >
@@ -1172,4 +1359,13 @@ function App() {
     </>
   );
 }
-createRoot(document.getElementById("root")!).render(<App />);
+const queryClient = new QueryClient();
+createRoot(document.getElementById("root")!).render(
+  <WagmiProvider config={walletConfig}>
+    <QueryClientProvider client={queryClient}>
+      <RainbowKitProvider theme={darkTheme({ accentColor: "#d8b478", accentColorForeground: "#14221a" })}>
+        <App />
+      </RainbowKitProvider>
+    </QueryClientProvider>
+  </WagmiProvider>,
+);
